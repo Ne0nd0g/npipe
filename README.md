@@ -1,12 +1,12 @@
-npipe  [![Build status](https://ci.appveyor.com/api/projects/status/00vuepirsot29qwi)](https://ci.appveyor.com/project/natefinch/npipe) [![GoDoc](https://godoc.org/gopkg.in/natefinch/npipe.v2?status.svg)](https://godoc.org/gopkg.in/natefinch/npipe.v2)
+# npipe
+
+This project is a fork of https://github.com/natefinch/npipe
+
 =====
 Package npipe provides a pure Go wrapper around Windows named pipes.
 
 Windows named pipe documentation: http://msdn.microsoft.com/en-us/library/windows/desktop/aa365780
 
-Note that the code lives at https://github.com/natefinch/npipe (v2 branch)
-but should be imported as gopkg.in/natefinch/npipe.v2 (the package name is
-still npipe).
 
 npipe provides an interface based on stdlib's net package, with Dial, Listen,
 and Accept functions, as well as associated implementations of net.Conn and

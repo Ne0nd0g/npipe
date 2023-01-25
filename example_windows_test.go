@@ -1,11 +1,14 @@
+//go:build windows
+
 package npipe_test
 
 import (
+	// Standard
 	"bufio"
 	"fmt"
 	"net"
 
-	"gopkg.in/natefinch/npipe.v2"
+	"github.com/Ne0nd0g/npipe"
 )
 
 // Use Dial to connect to a server and read messages from it.
@@ -20,7 +23,7 @@ func ExampleDial() {
 	r := bufio.NewReader(conn)
 	msg, err := r.ReadString('\n')
 	if err != nil {
-		// handle eror
+		// handle error
 	}
 	fmt.Println(msg)
 }

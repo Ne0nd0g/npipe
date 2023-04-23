@@ -21,10 +21,16 @@ type PipeConn struct {
 	writeDeadline *time.Time     // writeDeadline is the timeout deadline to write
 }
 
+// iodata is a structure used to track input/output data
+type iodata struct {
+	n   uint32
+	err error
+}
+
 // completeRequest looks at iodata to see if a request is pending. If so, it waits for it to either complete or to
 // abort due to hitting the specified deadline. Deadline may be set to nil to wait forever. If no request is pending,
 // the content of iodata is returned.
-func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped *windows.Overlapped) (int, error) {
+func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped *windows.Overlapped) (size int, err error) {
 	if data.err == windows.ERROR_IO_INCOMPLETE || data.err == windows.ERROR_IO_PENDING {
 		var timer <-chan time.Time
 		if deadline != nil {

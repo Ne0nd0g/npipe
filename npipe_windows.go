@@ -99,15 +99,17 @@ func newOverlapped() (*windows.Overlapped, error) {
 // waitForCompletion waits for an asynchronous I/O request referred to by overlapped to complete.
 // This function returns the number of bytes transferred by the operation and an error code if
 // applicable (nil otherwise).
-func waitForCompletion(handle windows.Handle, overlapped *windows.Overlapped) (uint32, error) {
-	_, err := windows.WaitForSingleObject(overlapped.HEvent, windows.INFINITE)
+func waitForCompletion(handle windows.Handle, overlapped *windows.Overlapped) (transferred uint32, err error) {
+	_, err = windows.WaitForSingleObject(overlapped.HEvent, windows.INFINITE)
 	if err != nil {
 		return 0, fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI WaitForSingleObject: %s", err)
 	}
-	var transferred uint32
+
+	// GetOverlappedResult retrieves the results of an overlapped operation on the specified file, named pipe, or communications device.
+	// https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult
 	err = windows.GetOverlappedResult(handle, overlapped, &transferred, true)
 	if err != nil {
-		err = fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI GetOverlappedResult")
+		err = fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI GetOverlappedResult: %s", err)
 	}
 	return transferred, err
 }
@@ -159,11 +161,6 @@ func Listen(address string) (*PipeListener, error) {
 		err = fmt.Errorf("npipe.Listen(): %s", err)
 	}
 	return pl, err
-}
-
-type iodata struct {
-	n   uint32
-	err error
 }
 
 // ValidatePipeAddress validates that a proper Windows named pipe path was passed in (e.g., \\.\pipe\srvsvc)

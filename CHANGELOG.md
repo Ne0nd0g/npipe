@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ** This project is a fork of https://github.com/natefinch/npipe **
 
+## 1.1.1 - 2026-10-04
+
+### Changed
+
+- Bumped the Go directive to 1.27.0
+- Upgraded `golang.org/x/sys` to v0.48.0 (now a direct requirement)
+- Added a `go.sum` (previously absent)
+
 ## 1.1.0 - 2023-04-23
 
 ### Changed

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bumped the Go directive to 1.27.0
 - Upgraded `golang.org/x/sys` to v0.48.0 (now a direct requirement)
 - Added a `go.sum` (previously absent)
+- Added GitHub Actions CI (build/test/vet/govulncheck + golangci-lint + gosec on
+  windows-latest, and CodeQL) and a `.golangci.yml`
+- Cleaned up all golangci-lint findings: checked previously-ignored cleanup errors
+  (`CloseHandle`/`CancelIoEx`/`Close`), switched `t.Sub(time.Now())` to
+  `time.Until`, replaced deprecated `io/ioutil` with `io`, passed the test
+  `sync.WaitGroup` by pointer, and moved `t.Fatalf`/`t.Fatal` calls out of
+  non-test goroutines (now `t.Errorf`/`t.Error` + return)
 
 ## 1.1.0 - 2023-04-23
 

@@ -60,7 +60,7 @@ func DialTimeout(address string, timeout time.Duration) (*PipeConn, error) {
 				"npipe.DialTimeout(): timed out waiting for pipe '%s' to come available", address), true}
 		}
 		if isPipeNotReady(err) {
-			left := deadline.Sub(time.Now())
+			left := time.Until(deadline)
 			retry := 100 * time.Millisecond
 			if left > retry {
 				<-time.After(retry)

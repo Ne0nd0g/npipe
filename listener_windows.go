@@ -147,7 +147,7 @@ func (l *PipeListener) AcceptPipe() (*PipeConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer windows.CloseHandle(overlapped.HEvent)
+	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	err = windows.ConnectNamedPipe(handle, overlapped)
 	if err == nil || err == windows.ERROR_PIPE_CONNECTED {
 		return &PipeConn{handle: handle, addr: l.addr}, nil

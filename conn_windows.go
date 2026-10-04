@@ -34,7 +34,7 @@ func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped 
 	if data.err == windows.ERROR_IO_INCOMPLETE || data.err == windows.ERROR_IO_PENDING {
 		var timer <-chan time.Time
 		if deadline != nil {
-			if timeDiff := deadline.Sub(time.Now()); timeDiff > 0 {
+			if timeDiff := time.Until(*deadline); timeDiff > 0 {
 				timer = time.After(timeDiff)
 			}
 		}
@@ -46,7 +46,7 @@ func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped 
 		select {
 		case data = <-done:
 		case <-timer:
-			windows.CancelIoEx(c.handle, overlapped)
+			_ = windows.CancelIoEx(c.handle, overlapped)
 			data = iodata{0, timeout(c.addr.String())}
 		}
 	}
@@ -67,7 +67,7 @@ func (c *PipeConn) Read(b []byte) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("npipe.PipeConn.Read(): %s", err)
 	}
-	defer windows.CloseHandle(overlapped.HEvent)
+	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	var n uint32
 	err = windows.ReadFile(c.handle, b, &n, overlapped)
 	return c.completeRequest(iodata{n, err}, c.readDeadline, overlapped)
@@ -79,7 +79,7 @@ func (c *PipeConn) Write(b []byte) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("npipe.PipeConn.Write(): %s", err)
 	}
-	defer windows.CloseHandle(overlapped.HEvent)
+	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	var n uint32
 	err = windows.WriteFile(c.handle, b, &n, overlapped)
 	return c.completeRequest(iodata{n, err}, c.writeDeadline, overlapped)

@@ -4,6 +4,7 @@ package npipe
 
 import (
 	// Standard
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -45,19 +46,19 @@ func NewPipeListener(name string, openMode, pipeMode, maxInstances, outBuffer, i
 	// Validate the provided named pipe path
 	err := ValidatePipeAddress(name)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.NewPipeListener(): %s", err)
+		return nil, fmt.Errorf("npipe.NewPipeListener(): %w", err)
 	}
 
 	// Convert the pipe name to a UTF-16 string pointer
 	lpName, err := windows.UTF16PtrFromString(name)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.NewPipeListener(): there was an error converting \"%s\" to a UTF16 pointer: %s", name, err)
+		return nil, fmt.Errorf("npipe.NewPipeListener(): there was an error converting \"%s\" to a UTF16 pointer: %w", name, err)
 	}
 
 	// Create the named pipe
 	handle, err := windows.CreateNamedPipe(lpName, openMode, pipeMode, maxInstances, outBuffer, inBuffer, timeout, sa)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.NewPipeListener(): there was an error calling the WINAPI CreateNamedPipe function: %s", err)
+		return nil, fmt.Errorf("npipe.NewPipeListener(): there was an error calling the WINAPI CreateNamedPipe function: %w", err)
 	}
 
 	pl := PipeListener{
@@ -89,7 +90,7 @@ func NewPipeListenerQuick(name string, first bool) (*PipeListener, error) {
 
 	listener, err := NewPipeListener(name, uint32(mode), windows.PIPE_TYPE_BYTE, windows.PIPE_UNLIMITED_INSTANCES, 512, 512, 0, nil)
 	if err != nil {
-		err = fmt.Errorf("\"npipe.NewPipeListenerQuick(): %s\"", err)
+		err = fmt.Errorf("\"npipe.NewPipeListenerQuick(): %w\"", err)
 	}
 	return listener, err
 }
@@ -98,7 +99,7 @@ func NewPipeListenerQuick(name string, first bool) (*PipeListener, error) {
 // waits for the next call and returns a generic net.Conn.
 func (l *PipeListener) Accept() (net.Conn, error) {
 	c, err := l.AcceptPipe()
-	for err == windows.ERROR_NO_DATA {
+	for errors.Is(err, windows.ERROR_NO_DATA) {
 		// Ignore clients that connect and immediately disconnect.
 		c, err = l.AcceptPipe()
 	}
@@ -133,7 +134,7 @@ func (l *PipeListener) AcceptPipe() (*PipeConn, error) {
 		// Convert the pipe name to a UTF-16 string pointer
 		lpName, err := windows.UTF16PtrFromString(l.addr.String())
 		if err != nil {
-			return nil, fmt.Errorf("npipe.PipeListener.AcceptPipe(): there was an error converting \"%s\" to a UTF16 pointer: %s", l.addr, err)
+			return nil, fmt.Errorf("npipe.PipeListener.AcceptPipe(): there was an error converting \"%s\" to a UTF16 pointer: %w", l.addr, err)
 		}
 		handle, err = windows.CreateNamedPipe(lpName, windows.PIPE_ACCESS_DUPLEX|windows.FILE_FLAG_OVERLAPPED, windows.PIPE_TYPE_BYTE, windows.PIPE_UNLIMITED_INSTANCES, 512, 512, 0, nil)
 		if err != nil {
@@ -149,11 +150,11 @@ func (l *PipeListener) AcceptPipe() (*PipeConn, error) {
 	}
 	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	err = windows.ConnectNamedPipe(handle, overlapped)
-	if err == nil || err == windows.ERROR_PIPE_CONNECTED {
+	if err == nil || errors.Is(err, windows.ERROR_PIPE_CONNECTED) {
 		return &PipeConn{handle: handle, addr: l.addr}, nil
 	}
 
-	if err == windows.ERROR_IO_INCOMPLETE || err == windows.ERROR_IO_PENDING {
+	if errors.Is(err, windows.ERROR_IO_INCOMPLETE) || errors.Is(err, windows.ERROR_IO_PENDING) {
 		l.acceptOverlapped = overlapped
 		l.acceptHandle = handle
 		// unlock here so close can function correctly while we wait (we'll
@@ -168,7 +169,7 @@ func (l *PipeListener) AcceptPipe() (*PipeConn, error) {
 		}()
 		_, err = waitForCompletion(handle, overlapped)
 	}
-	if err == windows.ERROR_OPERATION_ABORTED {
+	if errors.Is(err, windows.ERROR_OPERATION_ABORTED) {
 		// Return error compatible to net.Listener.Accept() in case the
 		// listener was closed.
 		return nil, ErrClosed

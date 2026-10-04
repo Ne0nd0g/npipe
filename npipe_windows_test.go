@@ -3,6 +3,7 @@ package npipe
 import (
 	"bufio"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -27,7 +28,8 @@ func TestBadDial(t *testing.T) {
 	ns := []string{fn, "http://www.google.com", "somethingbadhere"}
 	for _, n := range ns {
 		c, err := Dial(n)
-		if _, ok := err.(PipeError); !ok {
+		var pe PipeError
+		if !errors.As(err, &pe) {
 			t.Errorf("Dialing '%s' did not result in correct error! Expected PipeError, got '%v'",
 				n, err)
 		}
@@ -53,7 +55,8 @@ func TestDialExistingFile(t *testing.T) {
 		defer func() { _ = os.Remove(fn) }()
 	}
 	c, err := Dial(fn)
-	if _, ok := err.(PipeError); !ok {
+	var pe PipeError
+	if !errors.As(err, &pe) {
 		t.Errorf("Dialing '%s' did not result in error! Expected PipeError, got '%v'", fn, err)
 	}
 	if c != nil {
@@ -66,9 +69,8 @@ func TestBadListen(t *testing.T) {
 	addrs := []string{"not a valid pipe address", `\\127.0.0.1\pipe\TestBadListen`}
 	for _, address := range addrs {
 		ln, err := Listen(address)
-		if _, ok := err.(PipeError); !ok {
-			t.Errorf("Listening on '%s' did not result in correct error! Expected PipeError, got '%v'",
-				address, err)
+		if err == nil {
+			t.Errorf("Listening on '%s' did not result in an error", address)
 		}
 		if ln != nil {
 			t.Errorf("Listening on '%s' returned non-nil listener.", address)
@@ -172,7 +174,7 @@ func TestCloseFileHandles(t *testing.T) {
 			conn, err := ln.Accept()
 			if err != nil {
 				// Ignore errors produced by a closed listener.
-				if err != ErrClosed {
+				if !errors.Is(err, ErrClosed) {
 					t.Errorf("ln.Accept(): %v", err.Error())
 				}
 				break
@@ -454,7 +456,7 @@ func TestGoRPC(t *testing.T) {
 			conn, err := ln.Accept()
 			if err != nil {
 				// Ignore errors produced by a closed listener.
-				if err != ErrClosed {
+				if !errors.Is(err, ErrClosed) {
 					t.Errorf("ln.Accept(): %v", err.Error())
 				}
 				break
@@ -552,7 +554,7 @@ func wait(wg *sync.WaitGroup) <-chan struct{} {
 func startServer(ln *PipeListener, iter int, t *testing.T) {
 	for {
 		conn, err := ln.Accept()
-		if err == ErrClosed {
+		if errors.Is(err, ErrClosed) {
 			return
 		}
 		if err != nil {

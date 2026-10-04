@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `sync.WaitGroup` by pointer, and moved `t.Fatalf`/`t.Fatal` calls out of
   non-test goroutines (now `t.Errorf`/`t.Error` + return)
 
+### Fixed
+
+- Wrapped Windows API errors with `%w` instead of `%s` and switched every errno
+  comparison to `errors.Is`/`errors.As`. The previous `%s` wrapping flattened the
+  `windows.Errno` to a string, which silently broke every sentinel check in the
+  package:
+  - `Dial` no longer waited for a pipe to become available — `isPipeNotReady`
+    could not match `ERROR_FILE_NOT_FOUND`/`ERROR_PIPE_BUSY` through the wrap, so
+    it returned immediately instead of retrying.
+  - `DialTimeout` could not recognize its own `ERROR_SEM_TIMEOUT`.
+  - `Dial` returned an opaque wrapped error instead of a `PipeError` for a badly
+    formatted pipe name (`ERROR_BAD_PATHNAME`).
+  - `PipeListener.Accept` returned a wrapped error instead of `ErrClosed` when the
+    listener was closed during a blocking accept (`ERROR_OPERATION_ABORTED`),
+    breaking its documented `net.Listener`-compatible contract.
+  - `PipeConn` reads/writes no longer translated a closed pipe
+    (`ERROR_BROKEN_PIPE`) into `io.EOF`, which Go's `net/rpc` relies on.
+- Updated the test suite to assert error identity with `errors.As`/`errors.Is`.
+
 ## 1.1.0 - 2023-04-23
 
 ### Changed

@@ -5,6 +5,7 @@ package npipe
 
 import (
 	// Standard
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -39,7 +40,7 @@ func Dial(address string) (*PipeConn, error) {
 			<-time.After(100 * time.Millisecond)
 			continue
 		}
-		return nil, fmt.Errorf("npipe.Dial(): %s", err)
+		return nil, fmt.Errorf("npipe.Dial(): %w", err)
 	}
 }
 
@@ -54,7 +55,7 @@ func DialTimeout(address string, timeout time.Duration) (*PipeConn, error) {
 		if err == nil {
 			return conn, nil
 		}
-		if err == windows.ERROR_SEM_TIMEOUT {
+		if errors.Is(err, windows.ERROR_SEM_TIMEOUT) {
 			// This is WaitNamedPipe's timeout error, so we know we're done
 			return nil, PipeError{fmt.Sprintf(
 				"npipe.DialTimeout(): timed out waiting for pipe '%s' to come available", address), true}
@@ -83,7 +84,7 @@ func isPipeNotReady(err error) bool {
 	// File Not Found means the server hasn't created the pipe yet.
 	// Neither is a fatal error.
 
-	return err == windows.ERROR_FILE_NOT_FOUND || err == windows.ERROR_PIPE_BUSY
+	return errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_PIPE_BUSY)
 }
 
 // newOverlapped creates a structure used to track asynchronous
@@ -91,7 +92,7 @@ func isPipeNotReady(err error) bool {
 func newOverlapped() (*windows.Overlapped, error) {
 	event, err := windows.CreateEvent(nil, 1, 1, nil)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.newOverlapped(): there was an error callling WINAPI CreateEvent: %s", err)
+		return nil, fmt.Errorf("npipe.newOverlapped(): there was an error callling WINAPI CreateEvent: %w", err)
 	}
 	return &windows.Overlapped{HEvent: event}, nil
 }
@@ -102,14 +103,14 @@ func newOverlapped() (*windows.Overlapped, error) {
 func waitForCompletion(handle windows.Handle, overlapped *windows.Overlapped) (transferred uint32, err error) {
 	_, err = windows.WaitForSingleObject(overlapped.HEvent, windows.INFINITE)
 	if err != nil {
-		return 0, fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI WaitForSingleObject: %s", err)
+		return 0, fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI WaitForSingleObject: %w", err)
 	}
 
 	// GetOverlappedResult retrieves the results of an overlapped operation on the specified file, named pipe, or communications device.
 	// https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getoverlappedresult
 	err = windows.GetOverlappedResult(handle, overlapped, &transferred, true)
 	if err != nil {
-		err = fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI GetOverlappedResult: %s", err)
+		err = fmt.Errorf("npipe.waitForCompletion(): there was an error calling WINAPI GetOverlappedResult: %w", err)
 	}
 	return transferred, err
 }
@@ -120,7 +121,7 @@ func waitForCompletion(handle windows.Handle, overlapped *windows.Overlapped) (t
 func dial(address string, timeout uint32) (*PipeConn, error) {
 	name, err := windows.UTF16PtrFromString(address)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.dial(): there was an error converting \"%s\" to a UTF16 pointer: %s", address, err)
+		return nil, fmt.Errorf("npipe.dial(): there was an error converting \"%s\" to a UTF16 pointer: %w", address, err)
 	}
 	// If at least one instance of the pipe has been created, this function
 	// will wait timeout milliseconds for it to become available.
@@ -128,7 +129,7 @@ func dial(address string, timeout uint32) (*PipeConn, error) {
 	// of the named pipe have been created yet.
 	// If this returns with no error, there is a pipe available.
 	if err = waitNamedPipe(name, timeout); err != nil {
-		if err == windows.ERROR_BAD_PATHNAME {
+		if errors.Is(err, windows.ERROR_BAD_PATHNAME) {
 			// badly formatted pipe name
 			return nil, badAddr(address)
 		}
@@ -136,7 +137,7 @@ func dial(address string, timeout uint32) (*PipeConn, error) {
 	}
 	pathp, err := windows.UTF16PtrFromString(address)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.dial(): there was an error converting \"%s\" to a UTF16 pointer: %s", address, err)
+		return nil, fmt.Errorf("npipe.dial(): there was an error converting \"%s\" to a UTF16 pointer: %w", address, err)
 	}
 	handle, err := windows.CreateFile(
 		pathp, windows.GENERIC_READ|windows.GENERIC_WRITE,
@@ -147,7 +148,7 @@ func dial(address string, timeout uint32) (*PipeConn, error) {
 		0,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("npipe.dial(): there was an error calling WINAPI CreateFile: %s", err)
+		return nil, fmt.Errorf("npipe.dial(): there was an error calling WINAPI CreateFile: %w", err)
 	}
 	return &PipeConn{handle: handle, addr: PipeAddr(address)}, nil
 }
@@ -158,7 +159,7 @@ func dial(address string, timeout uint32) (*PipeConn, error) {
 func Listen(address string) (*PipeListener, error) {
 	pl, err := NewPipeListenerQuick(address, true)
 	if err != nil {
-		err = fmt.Errorf("npipe.Listen(): %s", err)
+		err = fmt.Errorf("npipe.Listen(): %w", err)
 	}
 	return pl, err
 }

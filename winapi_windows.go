@@ -26,7 +26,7 @@ func disconnectNamedPipe(handle windows.Handle) error {
 	procDisconnectNamedPipe := modkernel32.NewProc("DisconnectNamedPipe")
 	ret, _, err := procDisconnectNamedPipe.Call(uintptr(handle))
 	if err != windows.Errno(0) {
-		return fmt.Errorf("npipe.disconnectNamedPipe(): there was an error calling the Windows API function DisconnectNamedPipe with return code %d: %s", ret, err)
+		return fmt.Errorf("npipe.disconnectNamedPipe(): there was an error calling the Windows API function DisconnectNamedPipe with return code %d: %w", ret, err)
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func waitNamedPipe(name *uint16, timeout uint32) error {
 	procWaitNamedPipeW := modkernel32.NewProc("WaitNamedPipeW")
 	ret, _, err := procWaitNamedPipeW.Call(uintptr(unsafe.Pointer(name)), uintptr(timeout), 0)
 	if err != windows.Errno(0) {
-		return fmt.Errorf("npipe.waitNamedPipe(): there was an error calling the Windows API function WaitNamedPipeW with return code %d: %s", ret, err)
+		return fmt.Errorf("npipe.waitNamedPipe(): there was an error calling the Windows API function WaitNamedPipeW with return code %d: %w", ret, err)
 	}
 	return nil
 }

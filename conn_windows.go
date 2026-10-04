@@ -4,6 +4,7 @@ package npipe
 
 import (
 	// Standard
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,7 +32,7 @@ type iodata struct {
 // abort due to hitting the specified deadline. Deadline may be set to nil to wait forever. If no request is pending,
 // the content of iodata is returned.
 func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped *windows.Overlapped) (size int, err error) {
-	if data.err == windows.ERROR_IO_INCOMPLETE || data.err == windows.ERROR_IO_PENDING {
+	if errors.Is(data.err, windows.ERROR_IO_INCOMPLETE) || errors.Is(data.err, windows.ERROR_IO_PENDING) {
 		var timer <-chan time.Time
 		if deadline != nil {
 			if timeDiff := time.Until(*deadline); timeDiff > 0 {
@@ -53,7 +54,7 @@ func (c *PipeConn) completeRequest(data iodata, deadline *time.Time, overlapped 
 	// Windows will produce ERROR_BROKEN_PIPE upon closing
 	// a handle on the other end of a connection. Go RPC
 	// expects an io.EOF error in this case.
-	if data.err == windows.ERROR_BROKEN_PIPE {
+	if errors.Is(data.err, windows.ERROR_BROKEN_PIPE) {
 		data.err = io.EOF
 	}
 	return int(data.n), data.err
@@ -65,7 +66,7 @@ func (c *PipeConn) Read(b []byte) (int, error) {
 	// contains a workaround that eats ERROR_BROKEN_PIPE.
 	overlapped, err := newOverlapped()
 	if err != nil {
-		return 0, fmt.Errorf("npipe.PipeConn.Read(): %s", err)
+		return 0, fmt.Errorf("npipe.PipeConn.Read(): %w", err)
 	}
 	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	var n uint32
@@ -77,7 +78,7 @@ func (c *PipeConn) Read(b []byte) (int, error) {
 func (c *PipeConn) Write(b []byte) (int, error) {
 	overlapped, err := newOverlapped()
 	if err != nil {
-		return 0, fmt.Errorf("npipe.PipeConn.Write(): %s", err)
+		return 0, fmt.Errorf("npipe.PipeConn.Write(): %w", err)
 	}
 	defer func() { _ = windows.CloseHandle(overlapped.HEvent) }()
 	var n uint32
@@ -106,11 +107,11 @@ func (c *PipeConn) RemoteAddr() net.Addr {
 func (c *PipeConn) SetDeadline(t time.Time) error {
 	err := c.SetReadDeadline(t)
 	if err != nil {
-		return fmt.Errorf("npipe.PipeConn.SetDeadline(): %s", err)
+		return fmt.Errorf("npipe.PipeConn.SetDeadline(): %w", err)
 	}
 	err = c.SetWriteDeadline(t)
 	if err != nil {
-		return fmt.Errorf("npipe.PipeConn.SetDeadline(): %s", err)
+		return fmt.Errorf("npipe.PipeConn.SetDeadline(): %w", err)
 	}
 	return nil
 }
